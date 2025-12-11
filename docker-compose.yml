@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # --- Document Database (Source) ---
+  ravendb:
+    image: ravendb/ravendb:6.0-latest
+    container_name: ravendb
+    environment:
+      - RAVEN_Setup_Mode=None
+      - RAVEN_License_Eula_Accepted=true
+      - RAVEN_Security_UnsecuredAccessAllowed=PrivateNetwork
+    ports:
+      - "8080:8080"   # RavenDB Studio
+      - "38888:38888" # TCP connections
+    volumes:
+      - ravendb_data:/opt/RavenDB/Server/RavenData
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/databases"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- S3-Compatible Storage Layer ---
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # MinIO Console
+    volumes:
+      - minio_data:/data
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Iceberg Versioning Catalog ---
+  nessie:
+    image: projectnessie/nessie:latest
+    container_name: nessie
+    environment:
+      - NESSIE_VERSION_STORE_TYPE=IN_MEMORY
+      - NESSIE_SERVER_DEFAULT_BRANCH=main
+    ports:
+      - "19120:19120"
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19120/api/v1/config"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Vector Store ---
+  milvus:
+    image: milvusdb/milvus:v2.3.0
+    container_name: milvus-standalone
+    environment:
+      - ETCD_USE_EMBED=true
+      - ETCD_DATA_DIR=/var/lib/milvus/etcd
+      - ETCD_CONFIG_PATH=/milvus/configs/embedEtcd.yaml
+      - COMMON_STORAGETYPE=local
+    volumes:
+      - milvus_data:/var/lib/milvus
+    ports:
+      - "19530:19530"  # Milvus API
+      - "9091:9091"    # Milvus metrics
+    command: ["milvus", "run", "standalone"]
+    mem_limit: 2g
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # --- Compute Engine (Spark with Iceberg/Nessie) ---
+  spark:
+    image: apache/spark:3.5.0
+    container_name: spark-iceberg
+    environment:
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
+    volumes:
+      - ./scripts:/opt/spark/scripts
+      - ./data:/opt/spark/data
+      - spark_ivy_cache:/root/.ivy2
+    ports:
+      - "4040:4040"  # Spark UI
+      - "8888:8888"  # Jupyter (if added)
+    depends_on:
+      minio:
+        condition: service_healthy
+      nessie:
+        condition: service_healthy
+    mem_limit: 4g
+    # Keep container running for interactive use
+    command: ["tail", "-f", "/dev/null"]
+
+volumes:
+  ravendb_data:
+  minio_data:
+  milvus_data:
+  spark_ivy_cache:
+
+networks:
+  default:
+    name: lakehouse-network
