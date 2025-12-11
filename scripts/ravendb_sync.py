@@ -142,12 +142,32 @@ def write_parquet_to_minio(
     # Convert to DataFrame
     df = pd.DataFrame(orders)
     
-    # Convert to PyArrow Table
-    table = pa.Table.from_pandas(df)
+    # Round timestamps to milliseconds for Spark compatibility
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.floor('ms')
+    
+    # Define explicit schema with timestamp(ms) instead of timestamp(ns)
+    schema_fields = []
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            # Use millisecond timestamps for Spark compatibility
+            schema_fields.append(pa.field(col, pa.timestamp('ms')))
+        elif pd.api.types.is_integer_dtype(df[col]):
+            schema_fields.append(pa.field(col, pa.int64()))
+        elif pd.api.types.is_float_dtype(df[col]):
+            schema_fields.append(pa.field(col, pa.float64()))
+        else:
+            schema_fields.append(pa.field(col, pa.string()))
+    
+    schema = pa.schema(schema_fields)
+    
+    # Convert to PyArrow Table with explicit schema
+    table = pa.Table.from_pandas(df, schema=schema)
     
     # Write to in-memory buffer
     buffer = io.BytesIO()
-    pq.write_table(table, buffer)
+    pq.write_table(table, buffer, compression='snappy')
     buffer.seek(0)
     
     # Upload to MinIO

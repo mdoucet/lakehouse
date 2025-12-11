@@ -6,7 +6,6 @@ Creates a database called 'Northwind' with an 'Orders' collection containing
 sample order documents that demonstrate the RavenDB -> Iceberg pipeline.
 
 Usage:
-  pip install pyravendb
   python seed_ravendb.py
 """
 
@@ -15,15 +14,7 @@ import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import json
-
-# Try to import ravendb-python client
-try:
-    from ravendb import DocumentStore
-except ImportError:
-    print("Installing ravendb package...")
-    import subprocess
-    subprocess.check_call(["pip", "install", "ravendb"])
-    from ravendb import DocumentStore
+import requests
 
 # RavenDB Configuration
 RAVENDB_URL = "http://localhost:8080"
@@ -46,6 +37,67 @@ PRODUCTS = [
 ]
 STATUSES = ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"]
 STATUS_WEIGHTS = [0.1, 0.15, 0.25, 0.45, 0.05]
+
+
+def wait_for_ravendb(max_retries=30, delay=2):
+    """Wait for RavenDB to be available."""
+    print("Waiting for RavenDB to be ready...")
+    
+    headers = {'Accept-Encoding': 'identity'}  # Disable compression
+    
+    for i in range(max_retries):
+        try:
+            resp = requests.get(
+                f"{RAVENDB_URL}/databases",
+                timeout=5,
+                headers=headers
+            )
+            if resp.status_code == 200:
+                print("✓ RavenDB is ready!")
+                return True
+        except Exception:
+            pass
+        print(f"  Attempt {i+1}/{max_retries}: RavenDB not ready yet...")
+        time.sleep(delay)
+    raise Exception("RavenDB did not become ready in time")
+
+
+def create_database():
+    """Create the database if it doesn't exist."""
+    headers = {'Accept-Encoding': 'identity'}  # Disable compression
+    
+    # Check if database exists
+    try:
+        resp = requests.get(
+            f"{RAVENDB_URL}/databases/{DATABASE_NAME}/stats",
+            timeout=5,
+            headers=headers
+        )
+        
+        if resp.status_code == 200:
+            print(f"✓ Database '{DATABASE_NAME}' already exists")
+            return
+    except:
+        pass
+    
+    # Create database using REST API
+    payload = {
+        "DatabaseName": DATABASE_NAME,
+        "Settings": {},
+        "Disabled": False
+    }
+    
+    resp = requests.put(
+        f"{RAVENDB_URL}/admin/databases",
+        params={"name": DATABASE_NAME},
+        json=payload,
+        headers={**headers, "Content-Type": "application/json"}
+    )
+    
+    if resp.status_code in [200, 201]:
+        print(f"✓ Created database '{DATABASE_NAME}'")
+    else:
+        print(f"⚠ Database creation response: {resp.status_code}")
 
 
 def generate_order_lines() -> List[Dict[str, Any]]:
@@ -96,37 +148,24 @@ def generate_order(order_num: int) -> Dict[str, Any]:
     }
 
 
-def wait_for_ravendb(max_retries=30, delay=2):
-    """Wait for RavenDB to be available."""
-    print("Waiting for RavenDB to be ready...")
-    import urllib.request
-    import urllib.error
+def store_document(doc_id: str, document: Dict[str, Any]):
+    """Store a document in RavenDB using REST API."""
+    url = f"{RAVENDB_URL}/databases/{DATABASE_NAME}/docs"
+    params = {"id": doc_id}
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity'  # Disable compression
+    }
     
-    for i in range(max_retries):
-        try:
-            urllib.request.urlopen(f"{RAVENDB_URL}/databases", timeout=5)
-            print("✓ RavenDB is ready!")
-            return True
-        except (urllib.error.URLError, urllib.error.HTTPError):
-            print(f"  Attempt {i+1}/{max_retries}: RavenDB not ready yet...")
-            time.sleep(delay)
-    raise Exception("RavenDB did not become ready in time")
-
-
-def create_database(store: DocumentStore):
-    """Create the database if it doesn't exist."""
-    from ravendb.serverwide.operations.common import CreateDatabaseOperation
-    from ravendb.serverwide import DatabaseRecord
+    resp = requests.put(
+        url,
+        params=params,
+        json=document,
+        headers=headers
+    )
     
-    try:
-        # Check if database exists
-        store.maintenance.server.send(CreateDatabaseOperation(DatabaseRecord(DATABASE_NAME)))
-        print(f"✓ Created database '{DATABASE_NAME}'")
-    except Exception as e:
-        if "already exists" in str(e).lower():
-            print(f"✓ Database '{DATABASE_NAME}' already exists")
-        else:
-            raise
+    if resp.status_code not in [200, 201]:
+        raise Exception(f"Failed to store document {doc_id}: {resp.status_code} - {resp.text}")
 
 
 def main():
@@ -135,35 +174,37 @@ def main():
     print("=" * 60)
     
     wait_for_ravendb()
+    create_database()
     
-    # Initialize DocumentStore
-    store = DocumentStore(urls=[RAVENDB_URL], database=DATABASE_NAME)
-    store.initialize()
+    print(f"\nGenerating and inserting {NUM_ORDERS} sample orders...")
     
-    # Create database
-    create_database(store)
-    
-    print(f"\nGenerating {NUM_ORDERS} sample orders...")
-    
-    # Bulk insert orders
-    with store.bulk_insert() as bulk_insert:
-        for i in range(NUM_ORDERS):
-            order = generate_order(i)
-            order_id = f"orders/{i+1:04d}-A"
-            bulk_insert.store(order, order_id)
-            
-            if (i + 1) % 100 == 0:
-                print(f"  ✓ Inserted {i + 1} orders...")
+    # Insert orders using REST API
+    for i in range(NUM_ORDERS):
+        order = generate_order(i)
+        order_id = f"orders/{i+1:04d}-A"
+        store_document(order_id, order)
+        
+        if (i + 1) % 100 == 0:
+            print(f"  ✓ Inserted {i + 1} orders...")
     
     print(f"\n✓ Successfully inserted {NUM_ORDERS} orders into RavenDB")
     
     # Print sample order
-    with store.open_session() as session:
-        sample = session.load("orders/0001-A")
-        print("\n" + "-" * 40)
-        print("Sample Order (orders/0001-A):")
-        print("-" * 40)
-        print(json.dumps(sample, indent=2, default=str))
+    try:
+        headers = {'Accept-Encoding': 'identity'}  # Disable compression
+        resp = requests.get(
+            f"{RAVENDB_URL}/databases/{DATABASE_NAME}/docs",
+            params={"id": "orders/0001-A"},
+            headers=headers
+        )
+        if resp.status_code == 200:
+            sample = resp.json()
+            print("\n" + "-" * 40)
+            print("Sample Order (orders/0001-A):")
+            print("-" * 40)
+            print(json.dumps(sample, indent=2, default=str))
+    except Exception as e:
+        print(f"\n⚠ Could not load sample: {e}")
     
     print("\n" + "=" * 60)
     print("✓ RavenDB seeding complete!")
