@@ -44,6 +44,8 @@ RavenDB (Documents) ────────────────────
 - **20 GB free disk space**
 - **Python 3.9+** (for running scripts locally)
 
+**Note for Apple Silicon (M1/M2/M3) users:** This demo uses Milvus v2.4.0 which has improved ARM64 support. All services are tested and working on Apple Silicon Macs.
+
 ## Quick Start
 
 ### 1. Start All Services
@@ -81,6 +83,14 @@ python scripts/ravendb_sync.py
 ```
 
 ### 5. Bridge to Iceberg (via Spark)
+
+Use the helper script to simplify Spark job execution:
+
+```bash
+./run_spark.sh bridge_ravendb.py
+```
+
+Or run manually with full configuration:
 
 ```bash
 docker exec -it spark-iceberg /opt/spark/bin/spark-submit \
@@ -135,6 +145,8 @@ jupyter notebook notebooks/demo.ipynb
 ```
 lakehouse/
 ├── docker-compose.yml       # All services
+├── run_spark.sh             # Helper script for Spark jobs
+├── requirements.txt         # Python dependencies
 ├── scripts/
 │   ├── init_buckets.py      # Create MinIO bucket structure
 │   ├── seed_ravendb.py      # Populate RavenDB with sample data
@@ -180,12 +192,23 @@ If you have a RavenDB Enterprise license, you can use the native OLAP ETL instea
 docker-compose logs <service-name>
 ```
 
+### Milvus not starting (ARM64/Apple Silicon)
+The demo uses Milvus v2.4.0 which has better ARM64 support. If you experience issues:
+```bash
+docker-compose logs milvus
+```
+
+To use an older version or troubleshoot, check the Milvus logs for etcd-related errors.
+
 ### Milvus memory issues
 Reduce Milvus memory in `docker-compose.yml`:
 ```yaml
 milvus:
   mem_limit: 1g
 ```
+
+### Parquet schema compatibility issues
+The `ravendb_sync.py` script writes Parquet files with millisecond-precision timestamps for Spark compatibility. If you encounter schema errors, ensure you're running the latest version of the sync script.
 
 ### Spark package download slow
 The Spark packages are cached in a Docker volume. First run may be slow.
@@ -194,6 +217,12 @@ The Spark packages are cached in a Docker volume. First run may be slow.
 Wait for MinIO to be healthy before running scripts:
 ```bash
 docker-compose exec minio curl -f http://localhost:9000/minio/health/live
+```
+
+### Python dependencies
+Install all dependencies at once:
+```bash
+pip install -r requirements.txt
 ```
 
 ## Cleanup

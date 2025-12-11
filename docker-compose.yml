@@ -59,12 +59,11 @@ services:
 
   # --- Vector Store ---
   milvus:
-    image: milvusdb/milvus:v2.3.0
+    image: milvusdb/milvus:v2.4.0
     container_name: milvus-standalone
     environment:
       - ETCD_USE_EMBED=true
       - ETCD_DATA_DIR=/var/lib/milvus/etcd
-      - ETCD_CONFIG_PATH=/milvus/configs/embedEtcd.yaml
       - COMMON_STORAGETYPE=local
     volumes:
       - milvus_data:/var/lib/milvus
