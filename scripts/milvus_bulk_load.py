@@ -12,6 +12,7 @@ Usage:
   python milvus_bulk_load.py
 """
 
+import os
 import io
 import time
 from typing import List
