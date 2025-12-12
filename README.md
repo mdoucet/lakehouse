@@ -46,12 +46,75 @@ RavenDB (Documents) ────────────────────
 
 **Note for Apple Silicon (M1/M2/M3) users:** This demo uses Milvus v2.4.0 which has improved ARM64 support. All services are tested and working on Apple Silicon Macs.
 
+## Environment Configuration
+
+All service endpoints, ports, and credentials are configured via a `.env` file. This makes it easy to customize the setup without editing multiple files.
+
+The `.env` file contains configuration for:
+- **RavenDB** - Database URL and ports
+- **MinIO** - S3-compatible storage endpoints and credentials
+- **Nessie** - Iceberg catalog endpoint
+- **Milvus** - Vector database connection details
+- **Spark** - Compute engine ports
+- **AWS/S3** - Credentials for MinIO access
+
+**Important:** The `.env` file is loaded automatically by both:
+- **docker-compose** - When starting services
+- **Python scripts** - Via `python-dotenv` package
+
+All scripts use `os.getenv()` to read configuration, with sensible defaults if variables are not set.
+
+### Customizing Configuration
+
+To customize ports or endpoints, simply edit the `.env` file before starting services:
+
+```bash
+# Example: Change MinIO ports if 9100/9101 are already in use
+MINIO_PORT=9200
+MINIO_CONSOLE_PORT=9201
+```
+
+Then start services with the new configuration:
+
+```bash
+docker-compose up -d
+```
+
 ## Quick Start
 
-### 1. Start All Services
+### 1. Set Up Python Environment (Recommended)
+
+Create and activate a Python virtual environment to manage dependencies:
 
 ```bash
 cd /path/to/lakehouse
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# On Linux/macOS:
+source venv/bin/activate
+
+# On Windows:
+# venv\Scripts\activate
+```
+
+Install all Python dependencies at once:
+
+```bash
+pip install -r requirements.txt
+```
+
+This installs all required packages including `python-dotenv` for environment variable support.
+
+**Note:** Keep the virtual environment activated for all subsequent Python commands.
+
+### 2. Start All Services
+
+The `.env` file is automatically loaded by docker-compose:
+
+```bash
 docker-compose up -d
 ```
 
@@ -61,28 +124,27 @@ Wait for all services to be healthy:
 docker-compose ps
 ```
 
-### 2. Initialize the Storage Layer
+### 3. Initialize the Storage Layer
 
 ```bash
-pip install boto3
 python scripts/init_buckets.py
 ```
 
-### 3. Seed RavenDB with Sample Data
+The script will automatically read configuration from `.env`.
+
+### 4. Seed RavenDB with Sample Data
 
 ```bash
-pip install ravendb
 python scripts/seed_ravendb.py
 ```
 
-### 4. Sync RavenDB to Parquet
+### 5. Sync RavenDB to Parquet
 
 ```bash
-pip install pandas pyarrow
 python scripts/ravendb_sync.py
 ```
 
-### 5. Bridge to Iceberg (via Spark)
+### 6. Bridge to Iceberg (via Spark)
 
 Use the helper script to simplify Spark job execution:
 
@@ -101,7 +163,7 @@ docker exec -it spark-iceberg /opt/spark/bin/spark-submit \
   --conf spark.sql.catalog.nessie.uri=http://nessie:19120/api/v1 \
   --conf spark.sql.catalog.nessie.ref=main \
   --conf spark.sql.catalog.nessie.warehouse=s3a://lakehouse/warehouse \
-  --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 \
+  --conf spark.hadoop.fs.s3a.endpoint=http://minio:9100 \
   --conf spark.hadoop.fs.s3a.access.key=admin \
   --conf spark.hadoop.fs.s3a.secret.key=password \
   --conf spark.hadoop.fs.s3a.path.style.access=true \
@@ -109,36 +171,36 @@ docker exec -it spark-iceberg /opt/spark/bin/spark-submit \
   /opt/spark/scripts/bridge_ravendb.py
 ```
 
-### 6. Generate Embeddings
+### 7. Generate Embeddings
 
 ```bash
-pip install sentence-transformers
 python scripts/generate_embeddings.py
 ```
 
-### 7. Load Vectors into Milvus
+### 8. Load Vectors into Milvus
 
 ```bash
-pip install pymilvus
 python scripts/milvus_bulk_load.py
 ```
 
-### 8. Run the Demo Notebook
+### 9. Run the Demo Notebook
 
 ```bash
-pip install jupyter
 jupyter notebook notebooks/demo.ipynb
 ```
 
 ## Service URLs
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| RavenDB Studio | http://localhost:8080 | - |
-| MinIO Console | http://localhost:9001 | admin / password |
-| Nessie API | http://localhost:19120 | - |
-| Milvus | localhost:19530 | - |
-| Spark UI | http://localhost:4040 | - |
+The following URLs use the default ports from `.env`. If you've customized the ports, adjust accordingly:
+
+| Service | URL | Credentials | Environment Variable |
+|---------|-----|-------------|---------------------|
+| RavenDB Studio | http://localhost:8080 | - | `RAVENDB_PORT` |
+| MinIO Console | http://localhost:9101 | admin / password | `MINIO_CONSOLE_PORT` |
+| MinIO S3 API | http://localhost:9100 | admin / password | `MINIO_PORT` |
+| Nessie API | http://localhost:19120 | - | `NESSIE_PORT` |
+| Milvus | localhost:19530 | - | `MILVUS_PORT` |
+| Spark UI | http://localhost:4040 | - | `SPARK_UI_PORT` |
 
 ## Project Structure
 
