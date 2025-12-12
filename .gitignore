@@ -1,0 +1,95 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Jupyter Notebook checkpoints
+notebooks/.ipynb_checkpoints/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# VS Code settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# Ignore data/output files
+*.db
+*.sqlite3
+*.h5
+*.parquet
+*.csv
+*.tsv
+*.xls
+*.xlsx
+*.feather
+*.arrow
+*.orc
+*.avro
+*.jsonl
+*.tmp
+*.bak
+
+# Ignore secrets
+secrets.*
+
+# Ignore compiled notebooks
+notebooks/*.nbconvert.ipynb
+
+# Ignore spark logs
+spark-warehouse/
+metastore_db/
+
+# Ignore local scripts output
+scripts/*.out
+scripts/*.log
+
+# Ignore any user-specific files
+*.swp
+*.swo
+*~
+
+# Ignore Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Ignore pip wheel files
+*.whl
+
+# Ignore RavenDB and Milvus data (if any local data is generated)
+ravendb_data/
+milvus_data/
