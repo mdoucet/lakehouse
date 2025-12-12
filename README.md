@@ -8,6 +8,7 @@ A complete demonstration of an AI Data Lakehouse running on Docker, featuring:
 - **Project Nessie** - Git-like versioning for data
 - **Milvus** - Vector database for AI/semantic search
 - **Apache Spark** - Compute engine
+- **Dremio** - SQL query engine with Iceberg/Nessie integration
 
 ## Architecture
 
@@ -29,12 +30,18 @@ RavenDB (Documents) ────────────────────
 │  Apache Spark   │─────▶│ Apache Iceberg  │────▶│ Project Nessie  │
 │  (Compute)      │      │ (Table Format)  │     │ (Catalog)       │
 └─────────────────┘      └─────────────────┘     └─────────────────┘
+         │                        ▲
+         ▼                        │
+┌─────────────────┐      ┌─────────────────┐
+│  Embeddings     │      │     Dremio      │ ← SQL Query Engine
+│  (Vectors)      │      │  (ODBC/JDBC)    │
+└─────────────────┘      └─────────────────┘
          │
          ▼
-┌─────────────────┐      ┌─────────────────┐
-│  Embeddings     │─────▶│     Milvus      │
-│  (Vectors)      │      │ (Vector Search) │
-└─────────────────┘      └─────────────────┘
+┌─────────────────┐
+│     Milvus      │
+│ (Vector Search) │
+└─────────────────┘
 ```
 
 ## Prerequisites
@@ -201,6 +208,9 @@ The following URLs use the default ports from `.env`. If you've customized the p
 | Nessie API | http://localhost:19120 | - | `NESSIE_PORT` |
 | Milvus | localhost:19530 | - | `MILVUS_PORT` |
 | Spark UI | http://localhost:4040 | - | `SPARK_UI_PORT` |
+| Dremio UI | http://localhost:9047 | (first-run setup) | `DREMIO_UI_PORT` |
+| Dremio ODBC/JDBC | localhost:31010 | - | `DREMIO_CLIENT_PORT` |
+| Dremio Arrow Flight | localhost:32010 | - | `DREMIO_FLIGHT_PORT` |
 
 ## Project Structure
 
@@ -209,6 +219,7 @@ lakehouse/
 ├── docker-compose.yml       # All services
 ├── run_spark.sh             # Helper script for Spark jobs
 ├── requirements.txt         # Python dependencies
+├── .env.example             # Environment configuration template
 ├── scripts/
 │   ├── init_buckets.py      # Create MinIO bucket structure
 │   ├── seed_ravendb.py      # Populate RavenDB with sample data
@@ -216,7 +227,8 @@ lakehouse/
 │   ├── bridge_ravendb.py    # Merge landing zone → Iceberg
 │   ├── inventory_files.py   # Register unstructured files
 │   ├── generate_embeddings.py # Create vector embeddings
-│   └── milvus_bulk_load.py  # Load vectors into Milvus
+│   ├── milvus_bulk_load.py  # Load vectors into Milvus
+│   └── setup_dremio.py      # Configure Dremio data source (optional)
 ├── notebooks/
 │   └── demo.ipynb           # Interactive demonstration
 ├── data/                    # Sample files (mounted to Spark)
@@ -297,10 +309,62 @@ docker-compose down
 docker-compose down -v
 ```
 
+## Dremio Setup
+
+After starting all services, configure Dremio to connect to the Iceberg tables:
+
+### First-Time Setup
+
+1. Open Dremio UI at http://localhost:9047
+2. Create an admin account (first-run wizard)
+3. Skip sample data sources
+
+### Add Nessie Data Source
+
+1. Click **Add Source** → **Nessie**
+2. Configure the connection:
+   - **Name**: `lakehouse`
+   - **Nessie Endpoint URL**: `http://nessie:19120/api/v2`
+   - **Authentication**: None
+3. Under **Storage**:
+   - **AWS Root Path**: `warehouse`
+   - **AWS Access Key**: `admin`
+   - **AWS Secret Key**: `password`
+   - **Connection Properties**:
+     - `fs.s3a.path.style.access` = `true`
+     - `fs.s3a.endpoint` = `minio:9000`
+     - `dremio.s3.compat` = `true`
+4. Click **Save**
+
+### Query Iceberg Tables
+
+Once connected, you can query the Iceberg tables:
+
+```sql
+-- Browse the catalog
+SELECT * FROM lakehouse.structured_data.orders LIMIT 10;
+
+-- Aggregate queries
+SELECT Status, COUNT(*) as order_count 
+FROM lakehouse.structured_data.orders 
+GROUP BY Status;
+
+-- Time travel (if snapshots exist)
+SELECT * FROM lakehouse.structured_data.orders 
+AT BRANCH main;
+```
+
+### Connect via ODBC/JDBC
+
+Dremio exposes ODBC/JDBC on port 31010 and Arrow Flight on port 32010 for BI tools like:
+- Tableau
+- Power BI
+- DBeaver
+- Python (via `pyarrow.flight` or `sqlalchemy-dremio`)
+
 ## Next Steps
 
 - Add OpenMetadata for data governance
 - Configure RavenDB Enterprise OLAP ETL
 - Implement incremental sync (CDC)
-- Add Trino/Presto for SQL queries
 - Deploy to Kubernetes
