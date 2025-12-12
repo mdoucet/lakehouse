@@ -15,9 +15,14 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import json
 import requests
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 # RavenDB Configuration
-RAVENDB_URL = "http://localhost:8080"
+RAVENDB_URL = os.getenv('RAVENDB_URL', 'http://localhost:8080')
 DATABASE_NAME = "Northwind"
 NUM_ORDERS = 500
 

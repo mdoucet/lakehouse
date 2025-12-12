@@ -16,11 +16,16 @@ Usage:
 import boto3
 from botocore.client import Config
 import time
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 # MinIO Configuration
-MINIO_ENDPOINT = "http://localhost:9000"
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "password"
+MINIO_ENDPOINT = os.getenv('MINIO_URL', 'http://localhost:9100')
+MINIO_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID', 'admin')
+MINIO_SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', 'password')
 BUCKET_NAME = "lakehouse"
 
 # Folder structure to create (S3 uses "prefix" objects)
@@ -100,7 +105,8 @@ def main():
     print("\n" + "=" * 60)
     print("✓ Bucket initialization complete!")
     print("=" * 60)
-    print(f"\nMinIO Console: http://localhost:9001")
+    console_port = os.getenv('MINIO_CONSOLE_PORT', '9101')
+    print(f"\nMinIO Console: http://localhost:{console_port}")
     print(f"  Username: {MINIO_ACCESS_KEY}")
     print(f"  Password: {MINIO_SECRET_KEY}")
     print(f"\nS3 Endpoint: {MINIO_ENDPOINT}")

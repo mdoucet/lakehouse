@@ -33,15 +33,19 @@ except ImportError:
         connections, utility, Collection, CollectionSchema, 
         FieldSchema, DataType
     )
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configuration
-MILVUS_HOST = "localhost"
-MILVUS_PORT = "19530"
+MILVUS_HOST = os.getenv('MILVUS_HOST', 'localhost')
+MILVUS_PORT = os.getenv('MILVUS_PORT', '19530')
 COLLECTION_NAME = "orders_vector_index"
 
-MINIO_ENDPOINT = "http://localhost:9000"
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "password"
+MINIO_ENDPOINT = os.getenv('MINIO_URL', 'http://localhost:9100')
+MINIO_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID', 'admin')
+MINIO_SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', 'password')
 BUCKET_NAME = "lakehouse"
 VECTORS_PATH = "gold/milvus_import/vectors.parquet"
 

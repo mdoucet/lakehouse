@@ -17,6 +17,7 @@ torch>=2.1.0
 
 # Utilities
 requests>=2.31.0
+python-dotenv>=1.0.0
 
 # Jupyter (Optional - for demo notebook)
 jupyter>=1.0.0

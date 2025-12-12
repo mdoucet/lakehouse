@@ -25,11 +25,15 @@ from botocore.client import Config
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configuration
-MINIO_ENDPOINT = "http://localhost:9000"
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "password"
+MINIO_ENDPOINT = os.getenv('MINIO_URL', 'http://localhost:9100')
+MINIO_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID', 'admin')
+MINIO_SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', 'password')
 BUCKET_NAME = "lakehouse"
 
 # Embedding model config

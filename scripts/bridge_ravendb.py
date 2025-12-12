@@ -14,7 +14,7 @@ Run this inside the Spark container:
     --conf spark.sql.catalog.nessie.uri=http://nessie:19120/api/v1 \
     --conf spark.sql.catalog.nessie.ref=main \
     --conf spark.sql.catalog.nessie.warehouse=s3a://lakehouse/warehouse \
-    --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 \
+    --conf spark.hadoop.fs.s3a.endpoint=http://minio:9100 \
     --conf spark.hadoop.fs.s3a.access.key=admin \
     --conf spark.hadoop.fs.s3a.secret.key=password \
     --conf spark.hadoop.fs.s3a.path.style.access=true \

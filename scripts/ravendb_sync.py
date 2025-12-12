@@ -33,13 +33,17 @@ except ImportError:
     subprocess.check_call(["pip", "install", "ravendb"])
     from ravendb import DocumentStore
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 # Configuration
-RAVENDB_URL = "http://localhost:8080"
+RAVENDB_URL = os.getenv('RAVENDB_URL', 'http://localhost:8080')
 DATABASE_NAME = "Northwind"
 
-MINIO_ENDPOINT = "http://localhost:9000"
-MINIO_ACCESS_KEY = "admin"
-MINIO_SECRET_KEY = "password"
+MINIO_ENDPOINT = os.getenv('MINIO_URL', 'http://localhost:9100')
+MINIO_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID', 'admin')
+MINIO_SECRET_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', 'password')
 BUCKET_NAME = "lakehouse"
 LANDING_ZONE_PREFIX = "silver/ravendb_landing/orders"
 

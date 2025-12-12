@@ -5,13 +5,15 @@ services:
   ravendb:
     image: ravendb/ravendb:6.0-latest
     container_name: ravendb
+    env_file:
+      - .env
     environment:
       - RAVEN_Setup_Mode=None
       - RAVEN_License_Eula_Accepted=true
       - RAVEN_Security_UnsecuredAccessAllowed=PrivateNetwork
     ports:
-      - "8080:8080"   # RavenDB Studio
-      - "38888:38888" # TCP connections
+      - "${RAVENDB_PORT:-8080}:8080"   # RavenDB Studio
+      - "${RAVENDB_TCP_PORT:-38888}:38888" # TCP connections
     volumes:
       - ravendb_data:/opt/RavenDB/Server/RavenData
     mem_limit: 1g
@@ -25,13 +27,15 @@ services:
   minio:
     image: minio/minio
     container_name: minio
+    env_file:
+      - .env
     environment:
-      - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=password
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-admin}
+      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-password}
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"  # S3 API
-      - "9001:9001"  # MinIO Console
+      - "${MINIO_PORT:-9100}:9000"  # S3 API (host:container)
+      - "${MINIO_CONSOLE_PORT:-9101}:9001"  # MinIO Console (host:container)
     volumes:
       - minio_data:/data
     mem_limit: 512m
@@ -45,11 +49,13 @@ services:
   nessie:
     image: projectnessie/nessie:latest
     container_name: nessie
+    env_file:
+      - .env
     environment:
       - NESSIE_VERSION_STORE_TYPE=IN_MEMORY
       - NESSIE_SERVER_DEFAULT_BRANCH=main
     ports:
-      - "19120:19120"
+      - "${NESSIE_PORT:-19120}:19120"
     mem_limit: 512m
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:19120/api/v1/config"]
@@ -61,6 +67,8 @@ services:
   milvus:
     image: milvusdb/milvus:v2.4.0
     container_name: milvus-standalone
+    env_file:
+      - .env
     environment:
       - ETCD_USE_EMBED=true
       - ETCD_DATA_DIR=/var/lib/milvus/etcd
@@ -68,8 +76,8 @@ services:
     volumes:
       - milvus_data:/var/lib/milvus
     ports:
-      - "19530:19530"  # Milvus API
-      - "9091:9091"    # Milvus metrics
+      - "${MILVUS_PORT:-19530}:19530"  # Milvus API
+      - "${MILVUS_METRICS_PORT:-9091}:9091"    # Milvus metrics
     command: ["milvus", "run", "standalone"]
     mem_limit: 2g
     security_opt:
@@ -85,17 +93,19 @@ services:
     image: apache/spark:3.5.0
     container_name: spark-iceberg
     user: root  # Run as root to avoid permission issues
+    env_file:
+      - .env
     environment:
-      - AWS_ACCESS_KEY_ID=admin
-      - AWS_SECRET_ACCESS_KEY=password
-      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-admin}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-password}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
     volumes:
       - ./scripts:/opt/spark/scripts
       - ./data:/opt/spark/data
       - spark_ivy_cache:/root/.ivy2
     ports:
-      - "4040:4040"  # Spark UI
-      - "8888:8888"  # Jupyter (if added)
+      - "${SPARK_UI_PORT:-4040}:4040"  # Spark UI
+      - "${SPARK_JUPYTER_PORT:-8888}:8888"  # Jupyter (if added)
     depends_on:
       minio:
         condition: service_healthy
