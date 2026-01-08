@@ -215,6 +215,7 @@ def main():
     parser.add_argument("--password", "-p", default=None, help="Dremio password (or set DREMIO_PASSWORD in .env)")
     parser.add_argument("--source-name", "-s", default="lakehouse", help="Data source name")
     parser.add_argument("--test-only", action="store_true", help="Only test connection")
+    parser.add_argument("--refresh", "-r", action="store_true", help="Only refresh metadata (useful after Spark bridge jobs)")
     args = parser.parse_args()
     
     # Get credentials from args or environment
@@ -232,6 +233,12 @@ def main():
     
     if args.test_only:
         test_connection(token, args.source_name)
+        return
+    
+    if args.refresh:
+        # Just refresh metadata and exit
+        refresh_source(token, args.source_name)
+        print("\n✓ Metadata refresh triggered. Tables should now be visible in Dremio.")
         return
     
     # Create data source

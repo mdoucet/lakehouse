@@ -18,6 +18,15 @@ torch>=2.1.0
 # Utilities
 requests>=2.31.0
 python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# HDF5/NeXus Scientific Data
+h5py>=3.10.0
+
+# Tiled Data Server (for serving scientific data)
+# See: https://blueskyproject.io/tiled/
+tiled[all]>=0.1.0a120
+s3fs>=2024.2.0
 
 # Jupyter (Optional - for demo notebook)
 jupyter>=1.0.0
